@@ -1,32 +1,4 @@
-#!/usr/bin/env python3
-"""
-dts_pipeline.py -- single analysis pipeline for Paper 1 (draft v5).
 
-Implements Section 4 (Methods) of the draft exactly:
-  * cleaning: sentinel -99 rows removed, DT1/DT2 kept in 15-40 C,
-    records split at Millis gaps/resets
-  * estimator: 10 s windows, Delta T = DT1 - DT2 demeaned per window,
-    C_T^2 = var / R^(2/3), C_n^2 = (79e-6 P / T^2)^2 C_T^2
-  * run = independent unit: run medians, run-bootstrap CIs,
-    exact permutation test on run medians, run-level Cliff's delta
-  * window-level Mann-Whitney + Cliff's delta as secondary descriptors
-  * TKE, mean offset, Spearman (within max), Welch PSDs
-  * June 15 reported with and without Max1
-
-Usage
------
-  python dts_pipeline.py                  # full analysis (edit CONFIG first)
-  python dts_pipeline.py --tau step.csv   # probe time constant from a step test
-  python dts_pipeline.py --check-phase    # reproduce the 17% factor and the
-                                          # Rodriguez Garcia C_n^2 bounds (no data)
-
-Outputs (in OUT_DIR)
---------------------
-  paper_numbers.txt   every number the draft needs, grouped by section
-  run_table.csv       one row per run
-  numbers.csv         every reported statistic, long format
-  figures/            PNGs named to match the draft's \\figfile paths
-"""
 import argparse
 import glob
 import itertools
@@ -37,9 +9,9 @@ import numpy as np
 import pandas as pd
 from scipy import signal, stats
 
-# =====================================================================
+
 # CONFIG -- edit these before running
-# =====================================================================
+
 DATA_DIR = r"C:\Users\Otter\Downloads\Turbulence Python Code\drone_scintillation_data"            # folder with all session CSVs
 OUT_DIR = "results"
 
@@ -91,9 +63,8 @@ COLORS = {"Background": "#6c717a", "Hover": "#3aa55a", "Max": "#d9534f"}
 CONDS = ["Background", "Hover", "Max"]
 
 
-# =====================================================================
 # Loading and cleaning
-# =====================================================================
+
 def load_run(path):
     """Read one DTS CSV, clean it, return list of contiguous segments."""
     df = pd.read_csv(path, skipinitialspace=True)
@@ -163,9 +134,8 @@ def run_summary(path, cond, session):
     return row, win, segs
 
 
-# =====================================================================
 # Statistics
-# =====================================================================
+
 rng = np.random.default_rng(SEED)
 
 
@@ -222,9 +192,9 @@ def compare(runs_a, runs_b, win_a, win_b):
                 n_a=len(ra), n_b=len(rb), detected=detected)
 
 
-# =====================================================================
+
 # Main analysis
-# =====================================================================
+
 def gather():
     runs, wins, psd_data = [], {}, {}
     for s in SESSIONS:
@@ -310,9 +280,9 @@ def welch_segments(segs, col):
     return (fs, np.mean(Ps, axis=0)) if Ps else (None, None)
 
 
-# =====================================================================
-# Figures (names match the \figfile paths in draft v5)
-# =====================================================================
+
+# Figures 
+
 def make_figures(rt, wins, allstats, psd_data, figdir):
     import matplotlib
     matplotlib.use("Agg")
@@ -428,7 +398,7 @@ def make_figures(rt, wins, allstats, psd_data, figdir):
     axs[0].set_ylabel(r"mean $\Delta T$ [K]")
     fig.tight_layout(); fig.savefig(os.path.join(figdir, "offset.png")); plt.close(fig)
 
-    # Fig 6 PSDs (session closest to the axis) -- saved under the draft's filename
+    # Fig 6 PSDs (session closest to the axis) 
     s = sorted(SESSIONS, key=lambda s: s["r_cm"])[0]
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(7, 3))
     for cond in CONDS:
@@ -447,9 +417,8 @@ def make_figures(rt, wins, allstats, psd_data, figdir):
     fig.tight_layout(); fig.savefig(os.path.join(figdir, "jun2_detection_and_psd.png")); plt.close(fig)
 
 
-# =====================================================================
 # Report
-# =====================================================================
+
 def fmt(x, sig=2):
     return "--" if x is None or (isinstance(x, float) and np.isnan(x)) else f"{x:.{sig}g}"
 
@@ -583,9 +552,8 @@ def main_analysis():
     print(f"\nWrote {OUT_DIR}/paper_numbers.txt, run_table.csv, numbers.csv, figures/")
 
 
-# =====================================================================
 # Probe time constant from a bench step test
-# =====================================================================
+
 def fit_tau(path, channel="DT1", fit_s=20.0):
     df = pd.read_csv(path, skipinitialspace=True)
     df.columns = df.columns.str.strip()
@@ -606,9 +574,8 @@ def fit_tau(path, channel="DT1", fit_s=20.0):
     print("Run several steps (warm and cool, both probes) and report the mean and spread.")
 
 
-# =====================================================================
 # Theory check: 17% factor and the Rodriguez Garcia bounds (no data)
-# =====================================================================
+
 def check_phase():
     from scipy.special import j1, jv
     from scipy.integrate import quad
